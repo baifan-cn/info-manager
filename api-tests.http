@@ -1,0 +1,91 @@
+# API 测试文件 - 使用 REST Client 扩展
+
+### 变量定义
+@baseUrl = http://localhost:8000
+@apiV1 = {{baseUrl}}/api/v1
+
+### 健康检查
+GET {{baseUrl}}/
+
+###
+
+### 登录获取 Token
+# @name login
+POST {{apiV1}}/login/access-token
+Content-Type: application/x-www-form-urlencoded
+
+username=admin@example.com
+&password=changethis
+
+###
+
+@accessToken = {{login.response.body.access_token}}
+
+### 获取当前用户信息
+GET {{apiV1}}/users/me
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 获取所有用户 (需要管理员权限)
+GET {{apiV1}}/users/
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 创建新用户
+POST {{apiV1}}/users/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "testpassword123",
+  "full_name": "Test User",
+  "is_active": true,
+  "is_superuser": false
+}
+
+###
+
+### 获取项目列表
+GET {{apiV1}}/items/
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 创建新项目
+POST {{apiV1}}/items/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "测试项目",
+  "description": "这是一个测试项目"
+}
+
+###
+
+### 获取单个项目 (替换 {id} 为实际 ID)
+GET {{apiV1}}/items/1
+Authorization: Bearer {{accessToken}}
+
+###
+
+### 更新项目
+PUT {{apiV1}}/items/1
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "更新的项目",
+  "description": "更新后的描述"
+}
+
+###
+
+### 删除项目
+DELETE {{apiV1}}/items/1
+Authorization: Bearer {{accessToken}}
+
+###
