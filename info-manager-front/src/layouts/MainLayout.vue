@@ -21,7 +21,7 @@ const isSuperuser = computed(() => Boolean(userStore.profile?.is_superuser))
 const navItems = computed<NavItem[]>(() => {
   const items: NavItem[] = [
     { label: '控制台', path: '/dashboard' },
-    { label: '信息条目', path: '/items', disabled: true },
+    { label: '信息条目', path: '/items' },
   ]
 
   if (isSuperuser.value) {
