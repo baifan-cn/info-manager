@@ -1,5 +1,11 @@
 import { request } from '.'
-import type { Item, ItemListQuery, ItemListResult } from '../types/item'
+import type {
+  CreateItemPayload,
+  Item,
+  ItemListQuery,
+  ItemListResult,
+  UpdateItemPayload,
+} from '../types/item'
 
 type RawItemListResponse =
   | Item[]
@@ -32,6 +38,18 @@ function normalizeItemListResponse(raw: RawItemListResponse): ItemListResult {
 export async function getItems(params: ItemListQuery = {}): Promise<ItemListResult> {
   const response = (await request.get('/v1/items/', { params })) as RawItemListResponse
   return normalizeItemListResponse(response)
+}
+
+export function getItemById(itemId: string): Promise<Item> {
+  return request.get(`/v1/items/${itemId}`) as unknown as Promise<Item>
+}
+
+export function createItem(payload: CreateItemPayload): Promise<Item> {
+  return request.post('/v1/items/', payload) as unknown as Promise<Item>
+}
+
+export function updateItem(itemId: string, payload: UpdateItemPayload): Promise<Item> {
+  return request.put(`/v1/items/${itemId}`, payload) as unknown as Promise<Item>
 }
 
 export function deleteItem(itemId: string): Promise<void> {

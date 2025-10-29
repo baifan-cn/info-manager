@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { MessagePlugin, type PrimaryTableCol, type TableSort } from 'tdesign-vue-next'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import {
+  MessagePlugin,
+  type FormInstanceFunctions,
+  type FormRules,
+  type PrimaryTableCol,
+  type TableSort,
+} from 'tdesign-vue-next'
+import { useRouter } from 'vue-router'
 import { useItemStore } from '../../stores/item'
 import type { Item } from '../../types/item'
+import RichTextEditor from '../../components/common/RichTextEditor.vue'
 
 interface PaginationChangeContext {
   current: number
@@ -10,6 +18,7 @@ interface PaginationChangeContext {
 }
 
 const itemStore = useItemStore()
+const router = useRouter()
 
 const searchForm = reactive({
   keyword: itemStore.searchValue,
@@ -17,6 +26,30 @@ const searchForm = reactive({
 
 const selectedRowKeys = ref<string[]>([])
 const tableSort = ref<TableSort | undefined>(undefined)
+const dialogVisible = ref(false)
+const editingId = ref<string | null>(null)
+
+interface ItemFormModel {
+  title: string
+  description: string
+  context: string
+}
+
+const formModel = reactive<ItemFormModel>({
+  title: '',
+  description: '',
+  context: '',
+})
+
+const formRules: FormRules<ItemFormModel> = {
+  title: [
+    { required: true, message: '请输入条目标题', trigger: 'blur' },
+    { max: 255, message: '标题最多 255 个字符', trigger: 'blur' },
+  ],
+  description: [{ max: 255, message: '描述最多 255 个字符', trigger: 'blur' }],
+}
+
+const formRef = ref<FormInstanceFunctions<ItemFormModel> | null>(null)
 
 const items = computed(() => itemStore.items)
 const loading = computed(() => itemStore.loading)
@@ -26,6 +59,17 @@ const pageSize = computed(() => itemStore.pageSize)
 const deletingMap = computed(() => itemStore.deletingMap)
 const bulkDeleting = computed(() => itemStore.bulkDeleting)
 const hasSelection = computed(() => selectedRowKeys.value.length > 0)
+const creating = computed(() => itemStore.isCreating)
+const updatingMap = computed(() => itemStore.updatingIds)
+const detailLoading = computed(() => itemStore.isDetailLoading)
+const isEditMode = computed(() => Boolean(editingId.value))
+const dialogTitle = computed(() => (isEditMode.value ? '编辑条目信息' : '新建条目信息'))
+const dialogSubmitting = computed(() =>
+  isEditMode.value
+    ? Boolean(editingId.value && updatingMap.value[editingId.value])
+    : creating.value,
+)
+const dialogContentLoading = computed(() => isEditMode.value && detailLoading.value)
 
 const columns = ref<PrimaryTableCol<Item>[]>([
   {
@@ -189,6 +233,84 @@ const handleBulkDelete = async () => {
   }
 }
 
+const resetForm = () => {
+  formModel.title = ''
+  formModel.description = ''
+  formModel.context = ''
+}
+
+const populateForm = (item: Partial<Item> | null | undefined) => {
+  formModel.title = item?.title ?? ''
+  formModel.description = item?.description ?? ''
+  formModel.context = item?.context ?? ''
+}
+
+const openCreateDialog = async () => {
+  editingId.value = null
+  resetForm()
+  dialogVisible.value = true
+  await nextTick()
+  formRef.value?.clearValidate()
+}
+
+const openEditDialog = async (item: Item) => {
+  editingId.value = item.id
+  populateForm(item)
+  dialogVisible.value = true
+  await nextTick()
+  formRef.value?.clearValidate()
+  try {
+    const detail = await itemStore.fetchItemDetail(item.id)
+    populateForm(detail)
+  } catch (error) {
+    MessagePlugin.error(extractErrorMessage(error))
+  }
+}
+
+const handleViewDetail = (item: Item) => {
+  router.push({ name: 'item-detail', params: { id: item.id } })
+}
+
+const handleDialogClose = () => {
+  dialogVisible.value = false
+}
+
+const handleDialogConfirm = async () => {
+  if (dialogSubmitting.value) return
+  const form = formRef.value
+  if (!form) return
+  const result = await form.validate()
+  if (result !== true) return
+
+  const trimmedDescription = formModel.description.trim()
+  const htmlContent = formModel.context || ''
+  const plainContent = htmlContent
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const payload = {
+    title: formModel.title.trim(),
+    description: trimmedDescription ? trimmedDescription : undefined,
+    context: plainContent ? htmlContent : null,
+  }
+
+  try {
+    if (isEditMode.value && editingId.value) {
+      await itemStore.updateItemById(editingId.value, payload)
+      MessagePlugin.success('条目信息已更新')
+    } else {
+      await itemStore.createItem(payload)
+      MessagePlugin.success('条目信息已创建')
+      selectedRowKeys.value = []
+    }
+    dialogVisible.value = false
+  } catch (error) {
+    MessagePlugin.error(extractErrorMessage(error))
+  }
+}
+
 watch(
   () => itemStore.searchValue,
   (value) => {
@@ -206,6 +328,15 @@ watch(
   },
   { immediate: true },
 )
+
+watch(dialogVisible, (visible) => {
+  if (!visible) {
+    resetForm()
+    editingId.value = null
+    itemStore.clearDetail()
+    formRef.value?.clearValidate()
+  }
+})
 
 onMounted(() => {
   itemStore.fetchItems().catch((error) => {
@@ -229,6 +360,7 @@ onMounted(() => {
           <t-button variant="outline" @click="handleReset">重置</t-button>
         </div>
         <t-space size="small">
+          <t-button theme="primary" @click="openCreateDialog">新建条目</t-button>
           <t-button variant="outline" @click="handleRefresh">刷新</t-button>
           <t-popconfirm
             content="确认删除所选条目？此操作不可恢复"
@@ -255,6 +387,14 @@ onMounted(() => {
         @sort-change="handleSortChange"
         @select-change="handleSelectionChange"
       >
+        <template #title="{ row }">
+          <router-link
+            class="item-list__title-link"
+            :to="{ name: 'item-detail', params: { id: row.id } }"
+          >
+            {{ row.title }}
+          </router-link>
+        </template>
         <template #description="{ row }">
           <span>{{ row.description || '—' }}</span>
         </template>
@@ -268,6 +408,13 @@ onMounted(() => {
           {{ row.updated_at ? new Date(row.updated_at).toLocaleString() : '—' }}
         </template>
         <template #actions="{ row }">
+          <t-space size="small">
+            <t-button size="small" variant="text" @click="handleViewDetail(row)">
+              查看
+            </t-button>
+            <t-button size="small" variant="text" @click="openEditDialog(row)">
+              编辑
+            </t-button>
           <t-popconfirm
             content="确认删除该条目？此操作不可恢复"
             theme="danger"
@@ -282,6 +429,7 @@ onMounted(() => {
               删除
             </t-button>
           </t-popconfirm>
+          </t-space>
         </template>
       </t-table>
 
@@ -296,6 +444,44 @@ onMounted(() => {
         />
       </div>
     </t-card>
+
+    <t-dialog
+      v-model:visible="dialogVisible"
+      :header="dialogTitle"
+      width="720px"
+      destroy-on-close
+      :confirm-btn="{ content: '保存', loading: dialogSubmitting }"
+      :cancel-btn="{ disabled: dialogSubmitting }"
+      @confirm="handleDialogConfirm"
+      @close="handleDialogClose"
+    >
+      <t-loading :loading="dialogContentLoading" size="small">
+        <t-form
+          ref="formRef"
+          :data="formModel"
+          :rules="formRules"
+          label-width="88"
+          layout="vertical"
+          :disabled="dialogSubmitting"
+        >
+          <t-form-item name="title" label="标题">
+            <t-input v-model="formModel.title" placeholder="请输入条目标题" clearable />
+          </t-form-item>
+          <t-form-item name="description" label="描述">
+            <t-textarea
+              v-model="formModel.description"
+              placeholder="请输入条目简要描述"
+              maxlength="255"
+              show-limit-number
+              auto-size
+            />
+          </t-form-item>
+          <t-form-item name="context" label="正文内容">
+            <RichTextEditor v-model="formModel.context" placeholder="请输入正文内容" />
+          </t-form-item>
+        </t-form>
+      </t-loading>
+    </t-dialog>
   </div>
 </template>
 
@@ -312,6 +498,15 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.item-list__title-link {
+  color: var(--td-text-color-primary);
+  text-decoration: none;
+}
+
+.item-list__title-link:hover {
+  color: var(--td-brand-color-8);
 }
 
 .item-list__search {

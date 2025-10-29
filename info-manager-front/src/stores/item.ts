@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
-import { deleteItem, deleteItems, getItems } from '../api'
-import type { Item } from '../types/item'
+import {
+  createItem,
+  deleteItem,
+  deleteItems,
+  getItemById,
+  getItems,
+  updateItem,
+} from '../api'
+import type { CreateItemPayload, Item, UpdateItemPayload } from '../types/item'
 
 type SortOrder = 'asc' | 'desc' | null
 
@@ -35,6 +42,10 @@ interface ItemListState {
   sort: SortState
   deletingMap: Record<string, boolean>
   bulkDeleting: boolean
+  creating: boolean
+  updatingMap: Record<string, boolean>
+  detail: Item | null
+  detailLoading: boolean
 }
 
 export const useItemStore = defineStore('item', {
@@ -55,6 +66,10 @@ export const useItemStore = defineStore('item', {
     },
     deletingMap: {},
     bulkDeleting: false,
+    creating: false,
+    updatingMap: {},
+    detail: null,
+    detailLoading: false,
   }),
   getters: {
     page(state) {
@@ -71,6 +86,18 @@ export const useItemStore = defineStore('item', {
     },
     sortOrder(state) {
       return state.sort.order
+    },
+    isCreating(state) {
+      return state.creating
+    },
+    updatingIds(state) {
+      return state.updatingMap
+    },
+    currentDetail(state) {
+      return state.detail
+    },
+    isDetailLoading(state) {
+      return state.detailLoading
     },
   },
   actions: {
@@ -117,10 +144,49 @@ export const useItemStore = defineStore('item', {
         this.loading = false
       }
     },
+    async fetchItemDetail(itemId: string) {
+      this.detailLoading = true
+      try {
+        const item = await getItemById(itemId)
+        this.detail = item
+        return item
+      } finally {
+        this.detailLoading = false
+      }
+    },
+    clearDetail() {
+      this.detail = null
+    },
+    async createItem(payload: CreateItemPayload) {
+      this.creating = true
+      try {
+        const item = await createItem(payload)
+        await this.fetchItems({ page: 1 })
+        return item
+      } finally {
+        this.creating = false
+      }
+    },
+    async updateItemById(itemId: string, payload: UpdateItemPayload) {
+      this.updatingMap[itemId] = true
+      try {
+        const item = await updateItem(itemId, payload)
+        this.items = this.items.map((existing) => (existing.id === item.id ? item : existing))
+        if (this.detail && this.detail.id === item.id) {
+          this.detail = item
+        }
+        return item
+      } finally {
+        delete this.updatingMap[itemId]
+      }
+    },
     async deleteItemById(itemId: string) {
       this.deletingMap[itemId] = true
       try {
         await deleteItem(itemId)
+        if (this.detail?.id === itemId) {
+          this.detail = null
+        }
         const shouldLoadPrevPage =
           this.items.length <= 1 && this.pagination.page > 1
         if (shouldLoadPrevPage) {
@@ -129,7 +195,7 @@ export const useItemStore = defineStore('item', {
           await this.fetchItems()
         }
       } finally {
-        this.deletingMap[itemId] = false
+        delete this.deletingMap[itemId]
       }
     },
     async bulkDeleteByIds(itemIds: string[]) {
@@ -154,6 +220,10 @@ export const useItemStore = defineStore('item', {
       this.sort = { field: null, order: null }
       this.deletingMap = {}
       this.bulkDeleting = false
+      this.creating = false
+      this.updatingMap = {}
+      this.detail = null
+      this.detailLoading = false
     },
   },
 })

@@ -20,3 +20,15 @@ export interface ItemListResult {
   items: Item[]
   total: number
 }
+
+export interface CreateItemPayload {
+  title: string
+  description?: string | null
+  context?: string | null
+}
+
+export interface UpdateItemPayload {
+  title?: string
+  description?: string | null
+  context?: string | null
+}

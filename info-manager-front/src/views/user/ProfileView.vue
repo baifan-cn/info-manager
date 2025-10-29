@@ -170,7 +170,7 @@ const handleDeleteAccount = () => {
           </div>
         </div>
         <t-divider class="profile-overview__divider" />
-        <t-descriptions layout="horizontal" column="1" size="medium">
+        <t-descriptions layout="horizontal" :column="1" size="medium">
           <t-descriptions-item label="用户名">
             {{ profile?.username || '未设置' }}
           </t-descriptions-item>
