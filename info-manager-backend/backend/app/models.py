@@ -1,9 +1,17 @@
 import uuid
 from datetime import datetime
+from enum import Enum
 
 from pydantic import EmailStr
 from sqlalchemy import Column, DateTime, func
 from sqlmodel import Field, Relationship, SQLModel
+
+
+# Item Tag Enum
+class ItemTag(str, Enum):
+    DEFAULT = "default"
+    ECONOMIST = "economist"
+    WSJ = "wsj"
 
 
 # Shared properties
@@ -93,6 +101,7 @@ class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
     context: str | None = Field(default=None, description="Long article content")
+    tag: ItemTag = Field(default=ItemTag.DEFAULT, index=True)
     created_at: datetime = Field(
         default=None,
         sa_column=Column(
