@@ -86,7 +86,7 @@ const handleMenuChange = (value: string) => {
   }
 }
 
-const handleDropdownClick = async (value: string | number) => {
+const handleDropdownClick = (value: string | number) => {
   if (value === 'admin-users') {
     if (route.path !== '/admin/users') {
       router.push('/admin/users')
