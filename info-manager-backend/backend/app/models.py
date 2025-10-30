@@ -8,10 +8,10 @@ from sqlmodel import Field, Relationship, SQLModel
 
 
 # Item Tag Enum
-class ItemTag(str, Enum):
-    DEFAULT = "default"
-    ECONOMIST = "economist"
-    WSJ = "wsj"
+class ItemTag(Enum):
+    DEFAULT = "DEFAULT"
+    ECONOMIST = "ECONOMIST"
+    WSJ = "WSJ"
 
 
 # Shared properties
@@ -128,6 +128,7 @@ class ItemCreate(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
     context: str | None = Field(default=None, description="Long article content")
+    tag: ItemTag = Field(default=ItemTag.DEFAULT)
 
 
 # Properties to receive on item update
@@ -135,6 +136,7 @@ class ItemUpdate(SQLModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
     context: str | None = Field(default=None, description="Long article content")
+    tag: ItemTag | None = None
 
 
 # Database model, database table inferred from class name
@@ -153,6 +155,7 @@ class ItemPublic(SQLModel):
     title: str = Field(max_length=255)
     description: str | None = Field(default=None, max_length=255)
     context: str | None = Field(default=None, description="Long article content")
+    tag: ItemTag
     owner_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
