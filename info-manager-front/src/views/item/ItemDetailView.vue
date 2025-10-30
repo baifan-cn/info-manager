@@ -8,17 +8,31 @@ import {
 } from 'tdesign-vue-next'
 import RichTextEditor from '../../components/common/RichTextEditor.vue'
 import { useItemStore } from '../../stores/item'
-import type { Item } from '../../types/item'
+import { ITEM_TAG_LABEL_MAP, ITEM_TAG_VALUES } from '../../types/item'
+import type { Item, ItemTag } from '../../types/item'
 
 interface ItemFormModel {
   title: string
   description: string
   context: string
+  tag: ItemTag
 }
 
 const route = useRoute()
 const router = useRouter()
 const itemStore = useItemStore()
+
+const PLACEHOLDER_TEXT = '—'
+const DEFAULT_TAG: ItemTag = 'DEFAULT'
+const tagOptions = ITEM_TAG_VALUES.map((value) => ({
+  label: ITEM_TAG_LABEL_MAP[value],
+  value,
+})) as Array<{ label: string; value: ItemTag }>
+
+const resolveTagLabel = (tag?: ItemTag | null) => {
+  if (!tag) return PLACEHOLDER_TEXT
+  return ITEM_TAG_LABEL_MAP[tag] ?? tag
+}
 
 const editDialogVisible = ref(false)
 const formRef = ref<FormInstanceFunctions<ItemFormModel> | null>(null)
@@ -26,6 +40,7 @@ const formModel = reactive<ItemFormModel>({
   title: '',
   description: '',
   context: '',
+  tag: DEFAULT_TAG,
 })
 
 const formRules: FormRules<ItemFormModel> = {
@@ -34,6 +49,7 @@ const formRules: FormRules<ItemFormModel> = {
     { max: 255, message: '标题最多 255 个字符', trigger: 'blur' },
   ],
   description: [{ max: 255, message: '描述最多 255 个字符', trigger: 'blur' }],
+  tag: [{ required: true, message: '请选择条目标签', trigger: 'change' }],
 }
 
 const detail = computed(() => itemStore.currentDetail)
@@ -65,12 +81,14 @@ const resetForm = () => {
   formModel.title = ''
   formModel.description = ''
   formModel.context = ''
+  formModel.tag = DEFAULT_TAG
 }
 
 const populateForm = (item: Partial<Item> | null | undefined) => {
   formModel.title = item?.title ?? ''
   formModel.description = item?.description ?? ''
   formModel.context = item?.context ?? ''
+  formModel.tag = (item?.tag as ItemTag | undefined) ?? DEFAULT_TAG
 }
 
 const loadItemDetail = async (id: string) => {
@@ -122,6 +140,7 @@ const handleEditConfirm = async () => {
     title: formModel.title.trim(),
     description: trimmedDescription ? trimmedDescription : undefined,
     context: plainContent ? htmlContent : null,
+    tag: formModel.tag,
   }
 
   try {
@@ -197,6 +216,9 @@ onBeforeUnmount(() => {
         <template v-if="detail">
           <t-descriptions :column="2" layout="horizontal" size="large" bordered>
             <t-descriptions-item label="标题">{{ detail.title }}</t-descriptions-item>
+            <t-descriptions-item label="标签">
+              {{ resolveTagLabel(detail.tag) }}
+            </t-descriptions-item>
             <t-descriptions-item label="所有者">
               {{ detail.owner_id || '—' }}
             </t-descriptions-item>
@@ -242,6 +264,14 @@ onBeforeUnmount(() => {
       >
         <t-form-item name="title" label="标题">
           <t-input v-model="formModel.title" placeholder="请输入条目标题" clearable />
+        </t-form-item>
+        <t-form-item name="tag" label="标签">
+          <t-select
+            v-model="formModel.tag"
+            :options="tagOptions"
+            placeholder="请选择条目标签"
+            :clearable="false"
+          />
         </t-form-item>
         <t-form-item name="description" label="描述">
           <t-textarea
