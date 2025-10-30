@@ -19,7 +19,17 @@ def user_authentication_headers(
     return headers
 
 
-def create_random_user(db: Session, role: UserRole = UserRole.USER) -> User:
+def create_random_user(db: Session, role: UserRole = UserRole.USER) -> tuple[User, str]:
+    """
+    Create a random user and return the user object with the plain password.
+    
+    Args:
+        db: Database session
+        role: User role (default: USER)
+        
+    Returns:
+        Tuple of (User object, plain password string)
+    """
     email = random_email()
     password = random_lower_string()
     user_in = UserCreate(email=email, password=password)
@@ -32,9 +42,8 @@ def create_random_user(db: Session, role: UserRole = UserRole.USER) -> User:
         db.commit()
         db.refresh(user)
     
-    # Store password for testing (not secure, only for tests)
-    user.plain_password = password  # type: ignore
-    return user
+    # Return user and password separately
+    return user, password
 
 
 def authentication_token_from_email(

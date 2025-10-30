@@ -22,12 +22,12 @@ def test_private_endpoint_user_denied(
 def test_private_endpoint_member_allowed(client: TestClient, db: Session) -> None:
     """Test that members can access private endpoints."""
     # Create a member user
-    member_user = create_random_user(db, role=UserRole.MEMBER)
+    member_user, password = create_random_user(db, role=UserRole.MEMBER)
     
     # Get token for member
     login_data = {
         "username": member_user.email,
-        "password": member_user.plain_password,  # type: ignore
+        "password": password,
     }
     r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
     tokens = r.json()
@@ -61,12 +61,12 @@ def test_admin_endpoints_user_denied(
 def test_admin_endpoints_member_denied(client: TestClient, db: Session) -> None:
     """Test that members cannot access admin endpoints."""
     # Create a member user
-    member_user = create_random_user(db, role=UserRole.MEMBER)
+    member_user, password = create_random_user(db, role=UserRole.MEMBER)
     
     # Get token for member
     login_data = {
         "username": member_user.email,
-        "password": member_user.plain_password,  # type: ignore
+        "password": password,
     }
     r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
     tokens = r.json()
