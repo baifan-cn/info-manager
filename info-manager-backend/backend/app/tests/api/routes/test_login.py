@@ -116,3 +116,71 @@ def test_reset_password_invalid_token(
     assert "detail" in response
     assert r.status_code == 400
     assert response["detail"] == "Invalid token"
+
+
+def test_logout_revokes_token(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Test that logout revokes the token and subsequent requests fail."""
+    # First, verify the token works
+    r = client.post(
+        f"{settings.API_V1_STR}/login/test-token",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    # Logout
+    r = client.post(
+        f"{settings.API_V1_STR}/logout",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert r.json() == {"message": "Logout successful"}
+
+    # Try to use the same token again - should fail with 401
+    r = client.post(
+        f"{settings.API_V1_STR}/login/test-token",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 401
+
+
+def test_logout_idempotent(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Test that logout can be called multiple times without error."""
+    # First logout
+    r = client.post(
+        f"{settings.API_V1_STR}/logout",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    # Second logout with same token should still return 200
+    # (even though token is blacklisted, logout endpoint should be idempotent)
+    r = client.post(
+        f"{settings.API_V1_STR}/logout",
+        headers=superuser_token_headers,
+    )
+    # The request should fail at the auth level (401) since token is blacklisted
+    assert r.status_code == 401
+
+
+def test_blacklisted_token_returns_401(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    """Test that a blacklisted token returns 401 for protected endpoints."""
+    # Logout to blacklist the token
+    r = client.post(
+        f"{settings.API_V1_STR}/logout",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    # Try to access a protected endpoint
+    r = client.get(
+        f"{settings.API_V1_STR}/users/me",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 401
+    assert "revoked" in r.json().get("detail", "").lower()

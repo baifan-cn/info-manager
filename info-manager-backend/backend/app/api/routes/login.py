@@ -127,16 +127,16 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
 
 
 @router.post("/logout")
-def logout(current_user: CurrentUser, token: TokenDep) -> Message:
+async def logout(current_user: CurrentUser, token: TokenDep) -> Message:
     """
-    Logout user by adding their token to the blacklist
+    Logout user by adding their token to the blacklist (using async Redis)
     """
     try:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
         expires_at = datetime.fromtimestamp(payload["exp"])
-        TokenBlacklistService.add_to_blacklist(token, expires_at)
+        await TokenBlacklistService.async_add_to_blacklist(token, expires_at)
     except Exception:
         # Even if decoding fails, we want the frontend to successfully logout
         pass

@@ -28,9 +28,9 @@ SessionDep = Annotated[Session, Depends(get_db)]
 TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
 
-def get_current_user(session: SessionDep, token: TokenDep) -> User:
-    # Check if token is blacklisted
-    if TokenBlacklistService.is_token_blacklisted(token):
+async def get_current_user(session: SessionDep, token: TokenDep) -> User:
+    # Check if token is blacklisted (using async Redis client)
+    if await TokenBlacklistService.async_is_token_blacklisted(token):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has been revoked",
