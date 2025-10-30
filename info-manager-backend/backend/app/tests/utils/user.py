@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from app import crud
 from app.core.config import settings
-from app.models import User, UserCreate, UserUpdate
+from app.models import User, UserCreate, UserRole, UserUpdate
 from app.tests.utils.utils import random_email, random_lower_string
 
 
@@ -19,11 +19,21 @@ def user_authentication_headers(
     return headers
 
 
-def create_random_user(db: Session) -> User:
+def create_random_user(db: Session, role: UserRole = UserRole.USER) -> User:
     email = random_email()
     password = random_lower_string()
     user_in = UserCreate(email=email, password=password)
     user = crud.create_user(session=db, user_create=user_in)
+    
+    # Update role if not default
+    if role != UserRole.USER:
+        user.role = role
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    
+    # Store password for testing (not secure, only for tests)
+    user.plain_password = password  # type: ignore
     return user
 
 
