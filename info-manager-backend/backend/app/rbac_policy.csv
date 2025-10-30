@@ -1,0 +1,38 @@
+# Policy definitions
+# Format: p, role, resource, action
+# Regular user permissions
+p, user, /api/v1/items, GET
+p, user, /api/v1/items, POST
+p, user, /api/v1/items/:id, GET
+p, user, /api/v1/items/:id, PATCH
+p, user, /api/v1/items/:id, DELETE
+p, user, /api/v1/users/me, GET
+p, user, /api/v1/users/me, PATCH
+p, user, /api/v1/users/me/password, PATCH
+
+# Member permissions (inherits user permissions + additional)
+p, member, /api/v1/items, GET
+p, member, /api/v1/items, POST
+p, member, /api/v1/items/:id, GET
+p, member, /api/v1/items/:id, PATCH
+p, member, /api/v1/items/:id, DELETE
+p, member, /api/v1/users/me, GET
+p, member, /api/v1/users/me, PATCH
+p, member, /api/v1/users/me/password, PATCH
+p, member, /api/v1/private, GET
+
+# Admin permissions (full access)
+p, admin, /api/v1/items, GET
+p, admin, /api/v1/items, POST
+p, admin, /api/v1/items/:id, GET
+p, admin, /api/v1/items/:id, PATCH
+p, admin, /api/v1/items/:id, DELETE
+p, admin, /api/v1/users, GET
+p, admin, /api/v1/users, POST
+p, admin, /api/v1/users/:id, GET
+p, admin, /api/v1/users/:id, PATCH
+p, admin, /api/v1/users/:id, DELETE
+p, admin, /api/v1/users/me, GET
+p, admin, /api/v1/users/me, PATCH
+p, admin, /api/v1/users/me/password, PATCH
+p, admin, /api/v1/private, GET

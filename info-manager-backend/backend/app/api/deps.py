@@ -1,17 +1,18 @@
 from collections.abc import Generator
-from typing import Annotated
+from typing import Annotated, Callable
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session
 
 from app.core import security
+from app.core.casbin_enforcer import check_permission
 from app.core.config import settings
 from app.core.db import engine
-from app.models import TokenPayload, User
+from app.models import TokenPayload, User, UserRole
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -55,3 +56,61 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def check_casbin_permission(resource: str, action: str) -> Callable:
+    """
+    Dependency factory for Casbin permission checking.
+    
+    Args:
+        resource: Resource path (e.g., /api/v1/items)
+        action: HTTP method (GET, POST, PATCH, DELETE)
+        
+    Returns:
+        Dependency function that checks Casbin permissions
+        
+    Example:
+        @router.get("/items", dependencies=[Depends(check_casbin_permission("/api/v1/items", "GET"))])
+    """
+    def permission_checker(current_user: CurrentUser) -> User:
+        # Admin users (is_superuser) always have access
+        if current_user.is_superuser:
+            return current_user
+            
+        # Check Casbin permission for the user's role
+        if not check_permission(current_user.role.value, resource, action):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User role '{current_user.role.value}' does not have permission to {action} {resource}"
+            )
+        return current_user
+    
+    return permission_checker
+
+
+def require_role(*required_roles: UserRole) -> Callable:
+    """
+    Dependency factory for role-based access control.
+    
+    Args:
+        required_roles: Roles that are allowed to access the endpoint
+        
+    Returns:
+        Dependency function that checks if user has one of the required roles
+        
+    Example:
+        @router.get("/items", dependencies=[Depends(require_role(UserRole.MEMBER, UserRole.ADMIN))])
+    """
+    def role_checker(current_user: CurrentUser) -> User:
+        # Admin users (is_superuser) always have access
+        if current_user.is_superuser:
+            return current_user
+            
+        if current_user.role not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"User role '{current_user.role.value}' is not authorized. Required roles: {[r.value for r in required_roles]}"
+            )
+        return current_user
+    
+    return role_checker
