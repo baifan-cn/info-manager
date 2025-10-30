@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime
 
 from pydantic import EmailStr
+from sqlalchemy import Column, DateTime, func
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -10,11 +12,32 @@ class UserBase(SQLModel):
     is_active: bool = True
     is_superuser: bool = False
     full_name: str | None = Field(default=None, max_length=255)
+    created_at: datetime = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        ),
+    )
+    updated_at: datetime = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            onupdate=func.now(),
+            nullable=False,
+        ),
+    )
+    deleted_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    is_deleted: bool = Field(default=False, index=True)
 
 
 # Properties to receive via API on creation
-class UserCreate(UserBase):
+class UserCreate(SQLModel):
+    email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=8, max_length=40)
+    full_name: str | None = Field(default=None, max_length=255)
 
 
 class UserRegister(SQLModel):
@@ -24,9 +47,11 @@ class UserRegister(SQLModel):
 
 
 # Properties to receive via API on update, all are optional
-class UserUpdate(UserBase):
-    email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
+class UserUpdate(SQLModel):
+    email: EmailStr | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=40)
+    full_name: str | None = Field(default=None, max_length=255)
+    is_active: bool | None = None
 
 
 class UserUpdateMe(SQLModel):
@@ -47,8 +72,15 @@ class User(UserBase, table=True):
 
 
 # Properties to return via API, id is always required
-class UserPublic(UserBase):
+class UserPublic(SQLModel):
     id: uuid.UUID
+    email: EmailStr = Field(max_length=255)
+    is_active: bool
+    is_superuser: bool
+    full_name: str | None = Field(default=None, max_length=255)
+    created_at: datetime
+    updated_at: datetime
+    is_deleted: bool = False
 
 
 class UsersPublic(SQLModel):
@@ -61,15 +93,36 @@ class ItemBase(SQLModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
     context: str | None = Field(default=None, description="Long article content")
+    created_at: datetime = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        ),
+    )
+    updated_at: datetime = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            onupdate=func.now(),
+            nullable=False,
+        ),
+    )
+    deleted_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    is_deleted: bool = Field(default=False, index=True)
 
 
 # Properties to receive on item creation
-class ItemCreate(ItemBase):
-    pass
+class ItemCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=255)
+    context: str | None = Field(default=None, description="Long article content")
 
 
 # Properties to receive on item update
-class ItemUpdate(ItemBase):
+class ItemUpdate(SQLModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=255)
     context: str | None = Field(default=None, description="Long article content")
@@ -86,9 +139,15 @@ class Item(ItemBase, table=True):
 
 
 # Properties to return via API, id is always required
-class ItemPublic(ItemBase):
+class ItemPublic(SQLModel):
     id: uuid.UUID
+    title: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=255)
+    context: str | None = Field(default=None, description="Long article content")
     owner_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    is_deleted: bool = False
 
 
 class ItemsPublic(SQLModel):
