@@ -137,8 +137,12 @@ async def logout(current_user: CurrentUser, token: TokenDep) -> Message:
         )
         expires_at = datetime.fromtimestamp(payload["exp"])
         await TokenBlacklistService.async_add_to_blacklist(token, expires_at)
-    except Exception:
-        # Even if decoding fails, we want the frontend to successfully logout
+    except (jwt.InvalidTokenError, KeyError, ValueError, OSError):
+        # InvalidTokenError: token decoding failed
+        # KeyError: 'exp' field missing from payload
+        # ValueError: invalid timestamp
+        # OSError: Redis connection error
+        # Even if blacklisting fails, we want the frontend to successfully logout
         pass
     return Message(message="Logout successful")
 

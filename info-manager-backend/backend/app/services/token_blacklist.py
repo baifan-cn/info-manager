@@ -17,12 +17,17 @@ class TokenBlacklistService:
         """Get the Redis key for a token hash."""
         return f"{TokenBlacklistService.BLACKLIST_KEY}:{token_hash}"
 
+    @staticmethod
+    def _calculate_ttl(expires_at: datetime) -> int:
+        """Calculate TTL in seconds from expiration datetime."""
+        return int(expires_at.timestamp()) - int(datetime.now().timestamp())
+
     # Synchronous methods
     @staticmethod
     def add_to_blacklist(token: str, expires_at: datetime) -> None:
         """Add a token to the blacklist with TTL matching token expiration (sync)."""
         token_hash = TokenBlacklistService._get_token_hash(token)
-        ttl = int(expires_at.timestamp()) - int(datetime.now().timestamp())
+        ttl = TokenBlacklistService._calculate_ttl(expires_at)
         if ttl > 0:
             redis_client.setex(
                 TokenBlacklistService._get_blacklist_key(token_hash), ttl, "1"
@@ -41,7 +46,7 @@ class TokenBlacklistService:
     async def async_add_to_blacklist(token: str, expires_at: datetime) -> None:
         """Add a token to the blacklist with TTL matching token expiration (async)."""
         token_hash = TokenBlacklistService._get_token_hash(token)
-        ttl = int(expires_at.timestamp()) - int(datetime.now().timestamp())
+        ttl = TokenBlacklistService._calculate_ttl(expires_at)
         if ttl > 0:
             await async_redis_client.setex(
                 TokenBlacklistService._get_blacklist_key(token_hash), ttl, "1"
