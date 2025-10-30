@@ -1,16 +1,18 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app import crud
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, TokenDep, get_current_active_superuser
 from app.core import security
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.models import Message, NewPassword, Token, UserPublic
+from app.services.token_blacklist import TokenBlacklistService
 from app.utils import (
     generate_password_reset_token,
     generate_reset_password_email,
@@ -122,3 +124,24 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
     return HTMLResponse(
         content=email_data.html_content, headers={"subject:": email_data.subject}
     )
+
+
+@router.post("/logout")
+async def logout(current_user: CurrentUser, token: TokenDep) -> Message:
+    """
+    Logout user by adding their token to the blacklist (using async Redis)
+    """
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
+        expires_at = datetime.fromtimestamp(payload["exp"])
+        await TokenBlacklistService.async_add_to_blacklist(token, expires_at)
+    except (jwt.InvalidTokenError, KeyError, ValueError, OSError):
+        # InvalidTokenError: token decoding failed
+        # KeyError: 'exp' field missing from payload
+        # ValueError: invalid timestamp
+        # OSError: Redis connection error
+        # Even if blacklisting fails, we want the frontend to successfully logout
+        pass
+    return Message(message="Logout successful")

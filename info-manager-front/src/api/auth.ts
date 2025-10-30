@@ -49,3 +49,7 @@ export function resetPassword(data: ResetPasswordRequest) {
 export function verifyToken() {
   return request.post<void, void>('/v1/login/test-token')
 }
+
+export function logout() {
+  return request.post<void, void>('/v1/logout')
+}
