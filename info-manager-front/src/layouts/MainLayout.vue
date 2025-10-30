@@ -36,6 +36,7 @@ const navItems = computed<NavItem[]>(() => {
 const isMobile = ref(false)
 const isSidebarCollapsed = ref(false)
 const mobileMenuVisible = ref(false)
+const isLoggingOut = ref(false)
 
 const displayName = computed(() => userStore.displayName)
 const displayInitial = computed(() =>
@@ -86,7 +87,13 @@ const handleMenuChange = (value: string) => {
   }
 }
 
-const handleDropdownClick = (value: string | number) => {
+type DropdownOption = NonNullable<TdDropdownProps['options']>[number]
+
+const handleDropdownClick = async (payload: string | number | DropdownOption) => {
+  const value =
+    typeof payload === 'object' && payload && 'value' in payload
+      ? (payload as DropdownOption).value
+      : payload
   if (value === 'admin-users') {
     if (route.path !== '/admin/users') {
       router.push('/admin/users')
@@ -103,22 +110,33 @@ const handleDropdownClick = (value: string | number) => {
     const dialog = DialogPlugin.confirm({
       header: '退出登录',
       body: '确定要退出登录吗？',
-      confirmBtn: '确定',
+      confirmBtn: isLoggingOut.value ? { content: '退出中...', loading: true } : '确定',
       cancelBtn: '取消',
       onConfirm: async () => {
         try {
+          isLoggingOut.value = true
+          // 更新确认按钮状态
+          dialog.update({ confirmBtn: { content: '退出中...', loading: true } })
+
+          console.log('开始执行退出登录...')
           await authStore.logout(true)
+          console.log('退出登录成功，跳转到登录页面')
+
           MessagePlugin.success('已退出登录')
+          dialog.destroy()
           router.replace({ name: 'login' })
         } catch (error) {
-          console.error('Logout failed', error)
-          MessagePlugin.error('退出登录失败')
+          console.error('退出登录失败:', error)
+          MessagePlugin.error('退出登录失败，请重试')
+          dialog.update({ confirmBtn: '确定' })
         } finally {
-          dialog.destroy()
+          isLoggingOut.value = false
         }
       },
       onClose: () => {
-        dialog.destroy()
+        if (!isLoggingOut.value) {
+          dialog.destroy()
+        }
       },
     })
   }

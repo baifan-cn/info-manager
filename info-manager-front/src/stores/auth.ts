@@ -141,16 +141,29 @@ export const useAuthStore = defineStore('auth', {
       this.setToken(null, null)
     },
     async logout(server = true) {
+      console.log('开始执行退出登录，服务器端清理:', server, '当前token状态:', !!this.token)
+
       // Call server logout if requested
       if (server && this.token) {
         try {
+          console.log('调用服务器退出登录API...')
           await logoutApi()
+          console.log('服务器退出登录API调用成功')
         } catch (error) {
           // Continue with local logout even if server call fails
-          console.warn('Server logout failed, continuing with local logout', error)
+          console.error('服务器退出登录失败，继续执行本地清理:', error)
+          // 更详细的错误信息
+          if (error instanceof Error) {
+            console.error('错误详情:', error.message)
+          }
         }
+      } else {
+        console.log('跳过服务器退出登录调用')
       }
+
+      console.log('执行本地状态清理...')
       this.localLogout()
+      console.log('退出登录完成')
     },
     async refreshToken() {
       if (!this.token) return

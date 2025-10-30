@@ -145,4 +145,3 @@ async def logout(current_user: CurrentUser, token: TokenDep) -> Message:
         # Even if blacklisting fails, we want the frontend to successfully logout
         pass
     return Message(message="Logout successful")
-
