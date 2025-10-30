@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { MessagePlugin, type TdDropdownProps } from 'tdesign-vue-next'
+import { DialogPlugin, MessagePlugin, type TdDropdownProps } from 'tdesign-vue-next'
 import { useAuthStore } from '../stores/auth'
 import { useUserStore } from '../stores/user'
 
@@ -86,7 +86,7 @@ const handleMenuChange = (value: string) => {
   }
 }
 
-const handleDropdownClick = (value: string | number) => {
+const handleDropdownClick = async (value: string | number) => {
   if (value === 'admin-users') {
     if (route.path !== '/admin/users') {
       router.push('/admin/users')
@@ -100,9 +100,27 @@ const handleDropdownClick = (value: string | number) => {
     return
   }
   if (value === 'logout') {
-    authStore.logout()
-    MessagePlugin.success('已退出登录')
-    router.replace({ name: 'login' })
+    const dialog = DialogPlugin.confirm({
+      header: '退出登录',
+      body: '确定要退出登录吗？',
+      confirmBtn: '确定',
+      cancelBtn: '取消',
+      onConfirm: async () => {
+        try {
+          await authStore.logout(true)
+          MessagePlugin.success('已退出登录')
+          router.replace({ name: 'login' })
+        } catch (error) {
+          console.error('Logout failed', error)
+          MessagePlugin.error('退出登录失败')
+        } finally {
+          dialog.destroy()
+        }
+      },
+      onClose: () => {
+        dialog.destroy()
+      },
+    })
   }
 }
 

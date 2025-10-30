@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import {
   login as loginApi,
+  logout as logoutApi,
   type LoginRequest,
   verifyToken,
 } from '../api'
@@ -130,12 +131,26 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
-    logout() {
+    localLogout() {
+      // Local-only cleanup, for multi-tab sync
       const userStore = useUserStore()
       const adminUsersStore = useAdminUsersStore()
       userStore.clear()
       adminUsersStore.reset()
+      this.clearRefreshTimer()
       this.setToken(null, null)
+    },
+    async logout(server = true) {
+      // Call server logout if requested
+      if (server && this.token) {
+        try {
+          await logoutApi()
+        } catch (error) {
+          // Continue with local logout even if server call fails
+          console.warn('Server logout failed, continuing with local logout', error)
+        }
+      }
+      this.localLogout()
     },
     async refreshToken() {
       if (!this.token) return

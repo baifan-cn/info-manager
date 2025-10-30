@@ -91,6 +91,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - SENTRY_DSN=${SENTRY_DSN}
 
   backend:
@@ -130,6 +131,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - SENTRY_DSN=${SENTRY_DSN}
 
     healthcheck:
