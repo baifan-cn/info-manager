@@ -14,11 +14,19 @@ class ItemTag(Enum):
     WSJ = "WSJ"
 
 
+# User Role Enum
+class UserRole(str, Enum):
+    USER = "user"
+    MEMBER = "member"
+    ADMIN = "admin"
+
+
 # Shared properties
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
     is_active: bool = True
     is_superuser: bool = False
+    role: UserRole = Field(default=UserRole.USER, index=True)
     full_name: str | None = Field(default=None, max_length=255)
     created_at: datetime = Field(
         default=None,
@@ -50,6 +58,7 @@ class UserCreate(SQLModel):
 
 class SuperUserCreate(UserCreate):
     is_superuser: bool = True
+    role: UserRole = UserRole.ADMIN
 
 
 class UserRegister(SQLModel):
@@ -64,6 +73,7 @@ class UserUpdate(SQLModel):
     password: str | None = Field(default=None, min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
     is_active: bool | None = None
+    role: UserRole | None = None
 
 
 class UserUpdateMe(SQLModel):
@@ -89,6 +99,7 @@ class UserPublic(SQLModel):
     email: EmailStr = Field(max_length=255)
     is_active: bool
     is_superuser: bool
+    role: UserRole
     full_name: str | None = Field(default=None, max_length=255)
     created_at: datetime
     updated_at: datetime
